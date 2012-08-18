@@ -11,7 +11,7 @@ import java.util.Arrays;
 import java.util.zip.GZIPInputStream;
 
 /**
- * A SVM solver with SGD (stochastic gradient descent). the data is being used is RCV1-V2.
+ * A SVM solver with Pegasos algorithm. the training data is RCV1-V2.
  * see http://leon.bottou.org/projects/sgd
  * <p/>
  * The format of one training example per line looks like:
@@ -63,6 +63,10 @@ public class SvmSgd {
         a.assign(b, Functions.plus);
     }
 
+    public double norm(DoubleMatrix1D a) {
+        return Math.sqrt(inner(a, a));
+    }
+
     /**
      * get the hinge loss with current model
      */
@@ -73,16 +77,18 @@ public class SvmSgd {
     }
 
     /**
-     * correct the model with gradient descent method
+     * correct the model. see Pegasos algorithm.
      */
     private void correct(Instance instance) {
-        // w(t+1) = w(t) - learning_rate * gradient of loss function
-        // learning_rate is 1 / lambda * t
-        // gradient is lambda * weight - sum(y*x) / t
         int y = instance.getLabel();
         SparseDoubleMatrix1D xs = instance.getFeatures();
         scaleInPlace(weight, 1 - 1.0 / t);
         addInPlace(weight, scale(xs, y * 1.0 / (lambda * t)));
+        double norm = norm(weight);
+        double scale = 1.0 / (Math.sqrt(lambda) * norm);
+        if (scale < 1.0) {
+            scaleInPlace(weight, scale);
+        }
     }
 
     /**
@@ -95,7 +101,7 @@ public class SvmSgd {
             errors += 1;
             correct(instance);
         }
-        status(100);
+        status(1000);
     }
 
     private void status(int interval) {
